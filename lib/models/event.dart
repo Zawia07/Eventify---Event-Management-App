@@ -4,20 +4,17 @@ class Event {
   String id;
   String title;
   String description;
-  String locationName;
-  double latitude;
-  double longitude;
-  // For now, attendees will be empty. You can add List<String> attendeeUids later.
-  // List<String> attendees;
+  String? locationName; // <--- Make nullable
+  double? latitude; // <--- Make nullable
+  double? longitude; // <--- Make nullable
 
   Event({
     required this.id,
     required this.title,
     required this.description,
-    required this.locationName,
-    required this.latitude,
-    required this.longitude,
-    // this.attendees = const [],
+    this.locationName, // <--- No longer required
+    this.latitude, // <--- No longer required
+    this.longitude, // <--- No longer required
   });
 
   // Factory constructor to create an Event from a Firestore DocumentSnapshot
@@ -27,10 +24,11 @@ class Event {
       id: doc.id,
       title: data['title'] ?? '',
       description: data['description'] ?? '',
-      locationName: data['locationName'] ?? '',
-      latitude: (data['latitude'] ?? 0.0).toDouble(),
-      longitude: (data['longitude'] ?? 0.0).toDouble(),
-      // attendees: List<String>.from(data['attendees'] ?? []),
+      locationName: data['locationName'], // Will be null if not in Firestore
+      latitude: (data['latitude'] as num?)
+          ?.toDouble(), // Handle num? type from Firestore
+      longitude: (data['longitude'] as num?)
+          ?.toDouble(), // Handle num? type from Firestore
     );
   }
 
@@ -39,11 +37,10 @@ class Event {
     return {
       'title': title,
       'description': description,
-      'locationName': locationName,
-      'latitude': latitude,
-      'longitude': longitude,
-      // 'attendees': attendees,
-      'timestamp': FieldValue.serverTimestamp(), // Optional: adds creation time
+      'locationName': locationName, // Will save null if null
+      'latitude': latitude, // Will save null if null
+      'longitude': longitude, // Will save null if null
+      'timestamp': FieldValue.serverTimestamp(),
     };
   }
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:eventify2/services/firebase_services.dart'; // <--- CHANGE THIS LINE
-import 'package:eventify2/models/event.dart'; // <--- CHANGE THIS LINE
+import 'package:eventify2/services/firebase_services.dart';
+import 'package:eventify2/models/event.dart';
 import 'package:eventify2/pages/create_event_page.dart';
 
 class EventListPage extends StatelessWidget {
@@ -51,24 +51,26 @@ class EventListPage extends StatelessWidget {
                         style: const TextStyle(fontSize: 16),
                       ),
                       const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(Icons.location_on, size: 18),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              'Location: ${event.locationName}',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontStyle: FontStyle.italic,
+                      // Only show the location row if a location is available
+                      if (event.locationName != null &&
+                          event
+                              .locationName!
+                              .isNotEmpty) // <--- ADDED CONDITION
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on, size: 18),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                'Location: ${event.locationName}', // No need for ?? 'N/A' as row won't show if null
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontStyle: FontStyle.italic,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      // You can add a GoogleMap widget here to display the location
-                      // using event.latitude and event.longitude if you want.
-                      // For a simple list, displaying text is sufficient for now.
+                          ],
+                        ),
                     ],
                   ),
                 ),

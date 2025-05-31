@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:eventify2/services/firebase_services.dart'; // Ensure 'eventify2'
-import 'package:eventify2/models/event.dart'; // Ensure 'eventify2'
-import 'package:google_places_flutter/google_places_flutter.dart'; // Primary autocomplete widget
-import 'package:google_places_flutter/model/prediction.dart'; // The Prediction model we want to use
-
-// Corrected import for google_maps_webservice:
-// We use 'as gms_places' for general prefixing, AND 'hide Prediction'
-// to explicitly tell Dart NOT to import the 'Prediction' class from this package.
+import 'package:eventify2/services/firebase_services.dart';
+import 'package:eventify2/models/event.dart';
+import 'package:google_places_flutter/google_places_flutter.dart';
+import 'package:google_places_flutter/model/prediction.dart';
 import 'package:google_maps_webservice/places.dart'
     as gms_places
     hide Prediction;
@@ -42,25 +38,26 @@ class _CreateEventPageState extends State<CreateEventPage> {
 
   Future<void> _createEvent() async {
     if (_formKey.currentState!.validate()) {
-      if (_selectedLocationName.isEmpty ||
-          (_selectedLatitude == 0.0 && _selectedLongitude == 0.0)) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please select a valid event location.'),
-            ),
-          );
-        }
-        return;
-      }
+      // REMOVE THIS VALIDATION BLOCK:
+      // if (_selectedLocationName.isEmpty || (_selectedLatitude == 0.0 && _selectedLongitude == 0.0)) {
+      //   if (mounted) {
+      //     ScaffoldMessenger.of(context).showSnackBar(
+      //       const SnackBar(content: Text('Please select a valid event location.')),
+      //     );
+      //   }
+      //   return;
+      // }
 
       final newEvent = Event(
         id: '',
         title: _titleController.text,
         description: _descriptionController.text,
-        locationName: _selectedLocationName,
-        latitude: _selectedLatitude,
-        longitude: _selectedLongitude,
+        // Pass null if location is not selected (i.e., still default/empty)
+        locationName: _selectedLocationName.isNotEmpty
+            ? _selectedLocationName
+            : null,
+        latitude: _selectedLatitude != 0.0 ? _selectedLatitude : null,
+        longitude: _selectedLongitude != 0.0 ? _selectedLongitude : null,
       );
 
       try {
@@ -128,7 +125,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
                 textEditingController: _locationTextController,
                 googleAPIKey: googleMapsApiKey,
                 inputDecoration: const InputDecoration(
-                  labelText: 'Event Location',
+                  labelText: 'Event Location (Optional)', // <--- Changed label
                   hintText: 'Search for a place',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.location_on),
@@ -136,7 +133,6 @@ class _CreateEventPageState extends State<CreateEventPage> {
                 debounceTime: 400,
                 countries: const ["US"],
                 itemClick: (Prediction prediction) async {
-                  // This 'Prediction' is now unambiguously from google_places_flutter
                   _locationTextController.text = prediction.description ?? '';
                   _locationTextController
                       .selection = TextSelection.fromPosition(
@@ -166,7 +162,20 @@ class _CreateEventPageState extends State<CreateEventPage> {
                         debugPrint(
                           'No geometry or result found for place ID: ${prediction.placeId}',
                         );
+                        setState(() {
+                          // Clear selection if details not found
+                          _selectedLocationName = '';
+                          _selectedLatitude = 0.0;
+                          _selectedLongitude = 0.0;
+                        });
                       }
+                    } else {
+                      // Clear selection if placeId is null
+                      setState(() {
+                        _selectedLocationName = '';
+                        _selectedLatitude = 0.0;
+                        _selectedLongitude = 0.0;
+                      });
                     }
                   } catch (e) {
                     debugPrint(
@@ -176,16 +185,23 @@ class _CreateEventPageState extends State<CreateEventPage> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
-                            'Could not get full location details. Please ensure API Key is correct and Places API is enabled.',
+                            'Could not get full location details. Try searching again.',
                           ),
                         ),
                       );
                     }
+                    setState(() {
+                      // Clear selection on error
+                      _selectedLocationName = '';
+                      _selectedLatitude = 0.0;
+                      _selectedLongitude = 0.0;
+                    });
                   } finally {
                     places.dispose();
                   }
                 },
               ),
+              // Only show the selected location text if a location was actually selected
               if (_selectedLocationName.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 8.0),
