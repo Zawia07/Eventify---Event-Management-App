@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:eventify/services/firebase_services.dart'; // <--- CHANGE THIS LINE
-import 'package:eventify/models/event.dart'; // <--- CHANGE THIS LINE
-import 'package:eventify/pages/create_event_page.dart';
+import 'package:eventify2/services/firebase_services.dart'; // <--- CHANGE THIS LINE
+import 'package:eventify2/models/event.dart'; // <--- CHANGE THIS LINE
+import 'package:eventify2/pages/create_event_page.dart';
 
 class EventListPage extends StatelessWidget {
   const EventListPage({super.key});

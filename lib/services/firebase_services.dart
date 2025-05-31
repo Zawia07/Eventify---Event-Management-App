@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:eventify/models/event.dart';
+import 'package:eventify2/models/event.dart';
 
 class FirebaseService {
   final CollectionReference _eventsCollection = FirebaseFirestore.instance

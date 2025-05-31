@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:eventify/services/firebase_services.dart';
-import 'package:eventify/models/event.dart';
-import 'package:google_places_flutter/google_places_flutter.dart'; // For GooglePlaceAutoCompleteTextField
-import 'package:google_places_flutter/model/prediction.dart'; // For Prediction model
-import 'package:google_maps_webservice/places.dart'; // <--- THIS IS THE CORRECT IMPORT for PlaceDetails and GoogleMapsPlaces
+import 'package:eventify2/services/firebase_services.dart'; // Ensure 'eventify2'
+import 'package:eventify2/models/event.dart'; // Ensure 'eventify2'
+import 'package:google_places_flutter/google_places_flutter.dart'; // Primary autocomplete widget
+import 'package:google_places_flutter/model/prediction.dart'; // The Prediction model we want to use
+
+// Corrected import for google_maps_webservice:
+// We use 'as gms_places' for general prefixing, AND 'hide Prediction'
+// to explicitly tell Dart NOT to import the 'Prediction' class from this package.
+import 'package:google_maps_webservice/places.dart'
+    as gms_places
+    hide Prediction;
 
 class CreateEventPage extends StatefulWidget {
-  const CreateEventPage({super.key}); // Linter fix: use_super_parameters
+  const CreateEventPage({super.key});
 
   @override
   State<CreateEventPage> createState() => _CreateEventPageState();
@@ -24,9 +30,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
 
   final FirebaseService _firebaseService = FirebaseService();
 
-  // Linter fix: constant_identifier_names (camelCase)
-  static const String googleMapsApiKey =
-      "YOUR_GOOGLE_MAPS_API_KEY"; // Changed from GOOGLE_MAPS_API_KEY
+  static const String googleMapsApiKey = "YOUR_GOOGLE_MAPS_API_KEY";
 
   @override
   void dispose() {
@@ -40,7 +44,6 @@ class _CreateEventPageState extends State<CreateEventPage> {
     if (_formKey.currentState!.validate()) {
       if (_selectedLocationName.isEmpty ||
           (_selectedLatitude == 0.0 && _selectedLongitude == 0.0)) {
-        // Linter fix: use_build_context_synchronously (guard usage)
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -52,7 +55,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
       }
 
       final newEvent = Event(
-        id: '', // Firestore will generate the ID
+        id: '',
         title: _titleController.text,
         description: _descriptionController.text,
         locationName: _selectedLocationName,
@@ -62,17 +65,14 @@ class _CreateEventPageState extends State<CreateEventPage> {
 
       try {
         await _firebaseService.addEvent(newEvent);
-        // Linter fix: use_build_context_synchronously (guard usage)
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Event created successfully!')),
           );
-          Navigator.pop(context); // Go back to the previous page (Event List)
+          Navigator.pop(context);
         }
       } catch (e) {
-        // Linter fix: avoid_print (use debugPrint for dev logging)
         debugPrint('Failed to create event: $e');
-        // Linter fix: use_build_context_synchronously (guard usage)
         if (mounted) {
           ScaffoldMessenger.of(
             context,
@@ -136,30 +136,31 @@ class _CreateEventPageState extends State<CreateEventPage> {
                 debounceTime: 400,
                 countries: const ["US"],
                 itemClick: (Prediction prediction) async {
+                  // This 'Prediction' is now unambiguously from google_places_flutter
                   _locationTextController.text = prediction.description ?? '';
                   _locationTextController
                       .selection = TextSelection.fromPosition(
                     TextPosition(offset: _locationTextController.text.length),
                   );
 
-                  // *** THIS IS THE CRUCIAL SECTION TO ENSURE IT'S CORRECT ***
-                  // Use GoogleMapsPlaces from google_maps_webservice to fetch details
-                  final places = GoogleMapsPlaces(apiKey: googleMapsApiKey);
+                  final places = gms_places.GoogleMapsPlaces(
+                    apiKey: googleMapsApiKey,
+                  );
                   try {
                     if (prediction.placeId != null) {
-                      // Fetch full place details using the placeId
-                      PlacesDetailsResponse detail = await places
+                      gms_places.PlacesDetailsResponse detail = await places
                           .getDetailsByPlaceId(prediction.placeId!);
-                      if (detail.result.geometry != null) {
+                      if (detail.result != null &&
+                          detail.result!.geometry != null) {
                         setState(() {
                           _selectedLocationName =
-                              detail.result.name ??
+                              detail.result!.name ??
                               prediction.description ??
                               '';
                           _selectedLatitude =
-                              detail.result.geometry!.location.lat;
+                              detail.result!.geometry!.location.lat;
                           _selectedLongitude =
-                              detail.result.geometry!.location.lng;
+                              detail.result!.geometry!.location.lng;
                         });
                       } else {
                         debugPrint(
@@ -181,10 +182,8 @@ class _CreateEventPageState extends State<CreateEventPage> {
                       );
                     }
                   } finally {
-                    places
-                        .dispose(); // Important: Dispose of the Places client when done
+                    places.dispose();
                   }
-                  // *** END OF CRUCIAL SECTION ***
                 },
               ),
               if (_selectedLocationName.isNotEmpty)
