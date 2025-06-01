@@ -4,17 +4,21 @@ class Event {
   String id;
   String title;
   String description;
-  String? locationName; // <--- Make nullable
-  double? latitude; // <--- Make nullable
-  double? longitude; // <--- Make nullable
+  String? locationName;
+  double? latitude;
+  double? longitude;
+  String? joinCode;
+  String? imageUrl; // <--- NEW FIELD: URL of the event image
 
   Event({
     required this.id,
     required this.title,
     required this.description,
-    this.locationName, // <--- No longer required
-    this.latitude, // <--- No longer required
-    this.longitude, // <--- No longer required
+    this.locationName,
+    this.latitude,
+    this.longitude,
+    this.joinCode,
+    this.imageUrl, // <--- Add to constructor
   });
 
   // Factory constructor to create an Event from a Firestore DocumentSnapshot
@@ -24,11 +28,11 @@ class Event {
       id: doc.id,
       title: data['title'] ?? '',
       description: data['description'] ?? '',
-      locationName: data['locationName'], // Will be null if not in Firestore
-      latitude: (data['latitude'] as num?)
-          ?.toDouble(), // Handle num? type from Firestore
-      longitude: (data['longitude'] as num?)
-          ?.toDouble(), // Handle num? type from Firestore
+      locationName: data['locationName'],
+      latitude: (data['latitude'] as num?)?.toDouble(),
+      longitude: (data['longitude'] as num?)?.toDouble(),
+      joinCode: data['joinCode'],
+      imageUrl: data['imageUrl'], // <--- Read imageUrl from Firestore
     );
   }
 
@@ -37,9 +41,11 @@ class Event {
     return {
       'title': title,
       'description': description,
-      'locationName': locationName, // Will save null if null
-      'latitude': latitude, // Will save null if null
-      'longitude': longitude, // Will save null if null
+      'locationName': locationName,
+      'latitude': latitude,
+      'longitude': longitude,
+      'joinCode': joinCode,
+      'imageUrl': imageUrl, // <--- Write imageUrl to Firestore
       'timestamp': FieldValue.serverTimestamp(),
     };
   }

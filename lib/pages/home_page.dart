@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:eventify2/pages/event_list_page.dart';
-import 'package:eventify2/pages/create_event_page.dart';
+import 'package:eventify2/pages/manage_event_page.dart'; // <--- UPDATED IMPORT
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -37,8 +37,8 @@ class HomePage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const CreateEventPage(),
-                  ),
+                    builder: (context) => const ManageEventPage(),
+                  ), // <--- Use ManageEventPage
                 );
               },
               style: ElevatedButton.styleFrom(
