@@ -1,0 +1,7 @@
+[
+  {
+    "origin": ["http://localhost:*", "http://localhost:*/*"],
+    "method": ["GET", "HEAD", "DELETE"],
+    "maxAgeSeconds": 3600
+  }
+]
