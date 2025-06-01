@@ -17,9 +17,9 @@ class FirebaseService {
       .collection('joined_events');
 
   final Uuid _uuid = const Uuid();
+  // Use the default Firebase Storage instance, which points to your project's default bucket.
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  static const String _imageStorageBucketName = 'eventify3-7cffd-images';
   static const String _userIdKey = 'user_id';
 
   Future<String> getOrCreateUserId() async {
@@ -97,14 +97,10 @@ class FirebaseService {
     return querySnapshot.docs.isNotEmpty;
   }
 
-  // --- MODIFIED HERE ---
   Stream<List<JoinedEvent>> getJoinedEventsByUser(String userId) {
     return _joinedEventsCollection
         .where('userId', isEqualTo: userId)
-        .orderBy(
-          'joinedAt',
-          descending: false,
-        ) // Changed to ascending (or remove descending: false for default ascending)
+        .orderBy('joinedAt', descending: false) // To match your existing index
         .snapshots()
         .map((snapshot) {
           return snapshot.docs
@@ -112,7 +108,6 @@ class FirebaseService {
               .toList();
         });
   }
-  // --- END MODIFICATION ---
 
   Future<Event?> getEventByJoinCode(String joinCode) async {
     final querySnapshot = await _eventsCollection
@@ -126,16 +121,9 @@ class FirebaseService {
   }
 
   Stream<List<JoinedEvent>> getJoinStatusForEvent(String eventId) {
-    // This query also needs an index: eventId (Ascending), joinedAt (Descending)
-    // If you want to keep this descending, you will need a separate index for it.
-    // For now, let's change it to ascending to match the general pattern,
-    // or you can choose to create another index via the link if this part errors out.
     return _joinedEventsCollection
         .where('eventId', isEqualTo: eventId)
-        .orderBy(
-          'joinedAt',
-          descending: false,
-        ) // Changed to ascending for consistency
+        .orderBy('joinedAt', descending: false) // Changed to ascending, check if index needed
         .snapshots()
         .map((snapshot) {
           return snapshot.docs
@@ -144,20 +132,20 @@ class FirebaseService {
         });
   }
 
-  Reference _getStorageRefForCustomBucket(
-    String fileName,
-    String fileExtension,
-  ) {
-    return _storage
-        .refFromURL('gs://$_imageStorageBucketName')
-        .child('event_images/$fileName.$fileExtension');
+  Reference _getStorageRef(String fileName, String fileExtension) {
+    // Points to the default bucket associated with your Firebase project
+    return _storage.ref().child('event_images/$fileName.$fileExtension');
   }
 
   Future<String?> uploadEventImage(File imageFile) async {
+    // Kept for completeness, though bytes are preferred for web
     try {
       final fileName = _uuid.v4();
       final fileExtension = imageFile.path.split('.').last;
-      final storageRef = _getStorageRefForCustomBucket(fileName, fileExtension);
+      final storageRef = _getStorageRef(
+        fileName,
+        fileExtension,
+      ); 
 
       UploadTask uploadTask = storageRef.putFile(imageFile);
       TaskSnapshot snapshot = await uploadTask;
@@ -169,27 +157,53 @@ class FirebaseService {
     }
   }
 
+  // --- METHOD WITH DETAILED LOGGING ---
   Future<String?> uploadEventImageBytes(
     Uint8List imageBytes,
     String filename,
   ) async {
+    String? downloadUrl; // Declare outside try to ensure it's in scope for return
     try {
-      String fileExtension = 'png';
+      String fileExtension = 'png'; // Default extension
       if (filename.contains('.')) {
         fileExtension = filename.split('.').last;
+        if (fileExtension.isEmpty) fileExtension = 'png'; // Ensure valid extension
       }
       final fileName = _uuid.v4();
-      final storageRef = _getStorageRefForCustomBucket(fileName, fileExtension);
+      final storagePath = 'event_images/$fileName.$fileExtension'; // For logging path
+      final storageRef = _getStorageRef(fileName, fileExtension);
+      debugPrint('[FirebaseService] Attempting to upload to: ${storageRef.fullPath}');
 
       UploadTask uploadTask = storageRef.putData(imageBytes);
+      debugPrint('[FirebaseService] Upload task created. Awaiting completion...');
+
       TaskSnapshot snapshot = await uploadTask;
-      final String downloadUrl = await snapshot.ref.getDownloadURL();
-      return downloadUrl;
-    } catch (e) {
-      debugPrint('Error uploading image (Bytes): $e');
-      return null;
+      debugPrint('[FirebaseService] Upload task completed. State: ${snapshot.state}');
+      debugPrint('[FirebaseService] Bytes Transferred: ${snapshot.bytesTransferred}/${snapshot.totalBytes}');
+      
+      if (snapshot.state == TaskState.success) {
+        debugPrint('[FirebaseService] Upload successful. Attempting to get download URL...');
+        downloadUrl = await snapshot.ref.getDownloadURL(); // Assign to outer variable
+        debugPrint('[FirebaseService] Successfully got download URL: $downloadUrl');
+        return downloadUrl; // Explicitly return here if successful
+      } else {
+        debugPrint('[FirebaseService] Upload task did not succeed. State: ${snapshot.state}');
+        // Attempt to get metadata for more info if upload failed but task "completed"
+        try {
+          FullMetadata metadata = await storageRef.getMetadata();
+          debugPrint('[FirebaseService] Metadata for failed/paused upload path ${storageRef.fullPath}: ${metadata.size} bytes, type: ${metadata.contentType}');
+        } catch (metaError) {
+          debugPrint('[FirebaseService] Could not get metadata for ${storageRef.fullPath} after non-success state: $metaError');
+        }
+        return null; // Return null if not successful
+      }
+    } catch (e, s) { // Added stack trace variable 's'
+      debugPrint('[FirebaseService] Error in uploadEventImageBytes: $e');
+      debugPrint('[FirebaseService] Stack trace: $s'); // Print stack trace
+      return null; 
     }
   }
+  // --- END METHOD WITH DETAILED LOGGING ---
 
   Future<void> deleteEvent(String eventId) async {
     await _eventsCollection.doc(eventId).delete();
