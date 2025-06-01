@@ -35,9 +35,9 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # Explicitly set known-good, recent compatible Firebase package versions
-  firebase_core: ^2.27.0
-  cloud_firestore: ^4.15.8
-  firebase_storage: ^11.6.9
+  firebase_core: ^2.27.0 # Important: Use a stable recent version
+  cloud_firestore: ^4.15.8 # Important: Use a stable recent version
+  firebase_storage: ^11.6.9 # Important: Use a stable recent version
   js: ^0.7.1 # Crucial for web interop, ensure it's here and compatible with Firebase web packages
 
   google_maps_flutter: ^2.5.3

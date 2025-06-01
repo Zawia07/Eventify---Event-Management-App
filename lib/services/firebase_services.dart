@@ -4,7 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:eventify2/models/event.dart';
-import 'package:eventify2/models/joined_event.dart'; // <--- NEW IMPORT
+import 'package:eventify2/models/joined_event.dart';
 import 'package:uuid/uuid.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
@@ -13,15 +13,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 class FirebaseService {
   final CollectionReference _eventsCollection = FirebaseFirestore.instance
       .collection('events');
-  // NEW: Collection for tracking joined events
   final CollectionReference _joinedEventsCollection = FirebaseFirestore.instance
-      .collection('joined_events'); // <--- NEW COLLECTION REFERENCE
+      .collection('joined_events');
 
   final Uuid _uuid = const Uuid();
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
   static const String _imageStorageBucketName = 'eventify3-7cffd-images';
-
   static const String _userIdKey = 'user_id';
 
   Future<String> getOrCreateUserId() async {
@@ -61,7 +59,6 @@ class FirebaseService {
         });
   }
 
-  // NEW: Get all events for the user to view (same as event manager, but potentially with 'join' status)
   Stream<List<Event>> getAllEventsForUser() {
     return _eventsCollection
         .orderBy('timestamp', descending: true)
@@ -71,9 +68,7 @@ class FirebaseService {
         });
   }
 
-  // NEW: Join an event
   Future<void> joinEvent(String eventId, String userId) async {
-    // Check if already joined to prevent duplicates
     final existingJoin = await _joinedEventsCollection
         .where('eventId', isEqualTo: eventId)
         .where('userId', isEqualTo: userId)
@@ -92,9 +87,8 @@ class FirebaseService {
     }
   }
 
-  // NEW: Check if a user has joined a specific event
   Future<bool> hasUserJoinedEvent(String eventId, String userId) async {
-    if (userId.isEmpty) return false; // Cannot check if userId is empty
+    if (userId.isEmpty) return false;
     final querySnapshot = await _joinedEventsCollection
         .where('eventId', isEqualTo: eventId)
         .where('userId', isEqualTo: userId)
@@ -103,11 +97,14 @@ class FirebaseService {
     return querySnapshot.docs.isNotEmpty;
   }
 
-  // NEW: Get events joined by a specific user
+  // --- MODIFIED HERE ---
   Stream<List<JoinedEvent>> getJoinedEventsByUser(String userId) {
     return _joinedEventsCollection
         .where('userId', isEqualTo: userId)
-        .orderBy('joinedAt', descending: true)
+        .orderBy(
+          'joinedAt',
+          descending: false,
+        ) // Changed to ascending (or remove descending: false for default ascending)
         .snapshots()
         .map((snapshot) {
           return snapshot.docs
@@ -115,8 +112,8 @@ class FirebaseService {
               .toList();
         });
   }
+  // --- END MODIFICATION ---
 
-  // NEW: Get an event by its join code
   Future<Event?> getEventByJoinCode(String joinCode) async {
     final querySnapshot = await _eventsCollection
         .where('joinCode', isEqualTo: joinCode.toUpperCase())
@@ -128,11 +125,17 @@ class FirebaseService {
     return null;
   }
 
-  // NEW: Get stream of people who joined a specific event (for event manager)
   Stream<List<JoinedEvent>> getJoinStatusForEvent(String eventId) {
+    // This query also needs an index: eventId (Ascending), joinedAt (Descending)
+    // If you want to keep this descending, you will need a separate index for it.
+    // For now, let's change it to ascending to match the general pattern,
+    // or you can choose to create another index via the link if this part errors out.
     return _joinedEventsCollection
         .where('eventId', isEqualTo: eventId)
-        .orderBy('joinedAt', descending: true)
+        .orderBy(
+          'joinedAt',
+          descending: false,
+        ) // Changed to ascending for consistency
         .snapshots()
         .map((snapshot) {
           return snapshot.docs
@@ -192,7 +195,6 @@ class FirebaseService {
     await _eventsCollection.doc(eventId).delete();
   }
 
-  // New: Method to delete all join records for a deleted event (cleanup)
   Future<void> deleteAllJoinRecordsForEvent(String eventId) async {
     final querySnapshot = await _joinedEventsCollection
         .where('eventId', isEqualTo: eventId)
