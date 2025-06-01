@@ -27,33 +27,39 @@ environment:
 # dependencies can be manually updated by changing the version numbers below to
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
+# pubspec.yaml
 dependencies:
   flutter:
     sdk: flutter
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  firebase_core: ^3.13.1
+
+  # Explicitly set known-good, recent compatible Firebase package versions
+  firebase_core: ^2.27.0
+  cloud_firestore: ^4.15.8
+  firebase_storage: ^11.6.9
+  js: ^0.7.1 # Crucial for web interop, ensure it's here and compatible with Firebase web packages
+
   google_maps_flutter: ^2.5.3
   google_maps_webservice: ^0.0.20-nullsafety.5
   uuid: ^4.2.2
   google_places_flutter: ^2.1.0
-  cloud_firestore: ^5.6.8
-  firebase_storage: 12.4.6 # <--- NEW
   image_picker: ^1.0.7
+  shared_preferences: ^2.2.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
-  # The "flutter_lints" package below contains a set of recommended lints to
+  flutter_lints: ^2.0.0 # <--- THIS IS THE ONLY PLACE flutter_lints should be.
+  # You can keep the comments if you like, but ensure NO "flutter_lints" line follows them.
+  # The "flutter_lints" package contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^5.0.0
 
+  # For information on the generic Dart part of this file, see the
+  # following page: https://dart.dev/tools/pubspec
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

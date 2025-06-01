@@ -1,6 +1,7 @@
+// lib/pages/home_page.dart
 import 'package:flutter/material.dart';
 import 'package:eventify2/pages/event_list_page.dart';
-import 'package:eventify2/pages/manage_event_page.dart'; // <--- UPDATED IMPORT
+import 'package:eventify2/pages/user_page.dart'; // <--- NEW IMPORT
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -18,7 +19,8 @@ class HomePage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const EventListPage(),
+                    builder: (context) =>
+                        const UserPage(), // Navigate to UserPage
                   ),
                 );
               },
@@ -29,7 +31,7 @@ class HomePage extends StatelessWidget {
                 ),
                 textStyle: const TextStyle(fontSize: 18),
               ),
-              child: const Text('View Created Events'),
+              child: const Text('User'),
             ),
             const SizedBox(height: 20),
             ElevatedButton(
@@ -37,8 +39,9 @@ class HomePage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const ManageEventPage(),
-                  ), // <--- Use ManageEventPage
+                    builder: (context) =>
+                        const EventListPage(), // Existing Event Manager page
+                  ),
                 );
               },
               style: ElevatedButton.styleFrom(
@@ -48,7 +51,7 @@ class HomePage extends StatelessWidget {
                 ),
                 textStyle: const TextStyle(fontSize: 18),
               ),
-              child: const Text('Create New Event'),
+              child: const Text('Event Manager'),
             ),
           ],
         ),

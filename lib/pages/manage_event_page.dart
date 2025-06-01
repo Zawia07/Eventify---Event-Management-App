@@ -1,10 +1,9 @@
 // lib/pages/manage_event_page.dart
 
-import 'dart:io'; // For File, used conditionally for native platforms
-import 'dart:typed_data'; // For Uint8List, used for web image data
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart'
-    show kIsWeb; // <--- NEW IMPORT for platform check
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:eventify2/services/firebase_services.dart';
 import 'package:eventify2/models/event.dart';
 import 'package:google_places_flutter/google_places_flutter.dart';
@@ -34,13 +33,14 @@ class _ManageEventPageState extends State<ManageEventPage> {
   double _selectedLongitude = 0.0;
   String? _eventJoinCode;
 
-  XFile?
-  _pickedImageXFile; // <--- CHANGED TYPE to XFile? for universal handling
-  String? _currentImageUrl;
+  // Stores bytes for web display AND upload for new image
+  Uint8List? _pickedImageBytes;
+  String? _currentImageUrl; // For existing image URL
 
   final FirebaseService _firebaseService = FirebaseService();
   final ImagePicker _picker = ImagePicker();
 
+  // IMPORTANT: Replace with your actual Google Maps API Key for location services
   static const String googleMapsApiKey = "YOUR_GOOGLE_MAPS_API_KEY";
 
   @override
@@ -67,11 +67,35 @@ class _ManageEventPageState extends State<ManageEventPage> {
   }
 
   Future<void> _pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      if (image != null) {
+        final Uint8List? bytes = await image.readAsBytes(); // Read bytes ONCE
+
+        if (bytes == null || bytes.isEmpty) {
+          throw Exception('Image bytes could not be read.');
+        }
+
+        setState(() {
+          _pickedImageBytes = bytes; // Store bytes for display and upload
+          _currentImageUrl =
+              null; // Clear existing URL if a new image is picked
+        });
+      } else {
+        debugPrint('No image picked by user.');
+      }
+    } catch (e) {
+      debugPrint('Error picking or reading image for display/upload: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load selected image for display: $e'),
+          ),
+        );
+      }
       setState(() {
-        _pickedImageXFile = image; // Store the XFile directly
-        _currentImageUrl = null; // Clear existing URL if a new image is picked
+        // Clear selected image state on error
+        _pickedImageBytes = null;
       });
     }
   }
@@ -79,26 +103,19 @@ class _ManageEventPageState extends State<ManageEventPage> {
   Future<void> _saveEvent() async {
     if (_formKey.currentState!.validate()) {
       Event event;
-      String? finalImageUrl =
-          _currentImageUrl; // Start with the existing image URL
+      String? finalImageUrl = _currentImageUrl; // Start with existing URL
 
-      // --- START OF PLATFORM-SPECIFIC IMAGE UPLOAD LOGIC ---
-      if (_pickedImageXFile != null) {
-        if (kIsWeb) {
-          // For web, read the image bytes and use the new uploadEventImageBytes method
-          Uint8List bytes = await _pickedImageXFile!.readAsBytes();
+      // Only attempt to upload a new image if _pickedImageBytes are available
+      if (_pickedImageBytes != null && _pickedImageBytes!.isNotEmpty) {
+        debugPrint('Attempting to upload new image...');
+        try {
           finalImageUrl = await _firebaseService.uploadEventImageBytes(
-            bytes,
-            _pickedImageXFile!.name,
+            _pickedImageBytes!, // Use the already-read bytes
+            'event_image_${DateTime.now().millisecondsSinceEpoch}.png', // Provide a filename for the bytes upload
           );
-        } else {
-          // For native, use the existing uploadEventImage method with a File object
-          finalImageUrl = await _firebaseService.uploadEventImage(
-            File(_pickedImageXFile!.path),
-          );
-        }
-
-        if (finalImageUrl == null) {
+          debugPrint('Upload result URL: $finalImageUrl');
+        } catch (e) {
+          debugPrint('Error during image upload in _saveEvent: $e');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -108,8 +125,23 @@ class _ManageEventPageState extends State<ManageEventPage> {
           }
           return; // Stop if image upload fails
         }
+
+        if (finalImageUrl == null) {
+          debugPrint('Image upload returned null URL.');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Failed to get image URL after upload. Please try again.',
+                ),
+              ),
+            );
+          }
+          return;
+        }
+      } else {
+        debugPrint('No new image picked, retaining existing URL or null.');
       }
-      // --- END OF PLATFORM-SPECIFIC IMAGE UPLOAD LOGIC ---
 
       if (widget.eventToEdit == null) {
         // Create new event
@@ -122,7 +154,7 @@ class _ManageEventPageState extends State<ManageEventPage> {
               : null,
           latitude: _selectedLatitude != 0.0 ? _selectedLatitude : null,
           longitude: _selectedLongitude != 0.0 ? _selectedLongitude : null,
-          imageUrl: finalImageUrl, // Pass the uploaded image URL
+          imageUrl: finalImageUrl,
         );
         try {
           await _firebaseService.addEvent(event);
@@ -151,7 +183,7 @@ class _ManageEventPageState extends State<ManageEventPage> {
               : null,
           latitude: _selectedLatitude != 0.0 ? _selectedLatitude : null,
           longitude: _selectedLongitude != 0.0 ? _selectedLongitude : null,
-          imageUrl: finalImageUrl, // Pass the new/updated image URL
+          imageUrl: finalImageUrl, // Use the new or existing URL
           joinCode: widget.eventToEdit!.joinCode,
         );
         try {
@@ -233,38 +265,30 @@ class _ManageEventPageState extends State<ManageEventPage> {
                     borderRadius: BorderRadius.circular(8.0),
                     border: Border.all(color: Colors.grey),
                   ),
-                  child: _pickedImageXFile != null
-                      ? kIsWeb // <--- Conditional display for web
-                            ? Image.network(
-                                _pickedImageXFile!
-                                    .path, // On web, XFile.path is a blob URL
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return const Center(
-                                    child: Text(
-                                      'Failed to load selected image (web).',
-                                    ),
-                                  );
-                                },
-                              )
-                            : Image.file(
-                                // For native platforms
-                                File(_pickedImageXFile!.path),
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return const Center(
-                                    child: Text(
-                                      'Failed to load selected image (native).',
-                                    ),
-                                  );
-                                },
-                              )
+                  child:
+                      _pickedImageBytes !=
+                          null // Always check bytes first for display
+                      ? Image.memory(
+                          _pickedImageBytes!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            debugPrint(
+                              'Error loading picked image (memory): $error',
+                            );
+                            return const Center(
+                              child: Text('Failed to load selected image.'),
+                            );
+                          },
+                        )
                       : _currentImageUrl !=
-                            null // Fallback to network image if editing and no new image picked
+                            null // Fallback to existing URL
                       ? Image.network(
                           _currentImageUrl!,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) {
+                            debugPrint(
+                              'Error loading existing image (URL: $_currentImageUrl): $error',
+                            );
                             return const Center(
                               child: Text('Failed to load existing image.'),
                             );

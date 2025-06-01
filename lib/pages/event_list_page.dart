@@ -1,6 +1,8 @@
+// lib/pages/event_list_page.dart
 import 'package:flutter/material.dart';
 import 'package:eventify2/services/firebase_services.dart';
 import 'package:eventify2/models/event.dart';
+import 'package:eventify2/models/joined_event.dart'; // <--- NEW IMPORT
 import 'package:eventify2/pages/manage_event_page.dart';
 
 class EventListPage extends StatelessWidget {
@@ -41,11 +43,10 @@ class EventListPage extends StatelessWidget {
                       // Display Image if available
                       if (event.imageUrl != null && event.imageUrl!.isNotEmpty)
                         ClipRRect(
-                          // To make image corners rounded matching the card
                           borderRadius: BorderRadius.circular(8.0),
                           child: Image.network(
                             event.imageUrl!,
-                            height: 150, // Fixed height for images
+                            height: 150,
                             width: double.infinity,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) {
@@ -63,7 +64,7 @@ class EventListPage extends StatelessWidget {
                             },
                           ),
                         ),
-                      const SizedBox(height: 8), // Spacing after image
+                      const SizedBox(height: 8),
                       Text(
                         event.title,
                         style: const TextStyle(
@@ -110,6 +111,43 @@ class EventListPage extends StatelessWidget {
                             ),
                           ],
                         ),
+                      const SizedBox(height: 8), // Spacing before join status
+                      // NEW: Display Join Status
+                      StreamBuilder<List<JoinedEvent>>(
+                        stream: firebaseService.getJoinStatusForEvent(event.id),
+                        builder: (context, joinStatusSnapshot) {
+                          if (joinStatusSnapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Text('Join Status: Loading...');
+                          }
+                          if (joinStatusSnapshot.hasError) {
+                            return Text(
+                              'Join Status Error: ${joinStatusSnapshot.error}',
+                            );
+                          }
+                          final joinedCount =
+                              joinStatusSnapshot.data?.length ?? 0;
+                          return Row(
+                            children: [
+                              const Icon(
+                                Icons.people,
+                                size: 18,
+                                color: Colors.blueAccent,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Joined: $joinedCount ${joinedCount == 1 ? 'person' : 'people'}',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blueAccent,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+
                       Align(
                         alignment: Alignment.bottomRight,
                         child: Row(
@@ -137,7 +175,7 @@ class EventListPage extends StatelessWidget {
                                   builder: (context) => AlertDialog(
                                     title: const Text('Delete Event'),
                                     content: const Text(
-                                      'Are you sure you want to delete this event?',
+                                      'Are you sure you want to delete this event? This will also delete all join records for it.', // Updated text
                                     ),
                                     actions: [
                                       TextButton(
@@ -158,13 +196,18 @@ class EventListPage extends StatelessWidget {
                                 );
                                 if (confirmDelete == true) {
                                   try {
+                                    // NEW: Delete associated join records first
+                                    await firebaseService
+                                        .deleteAllJoinRecordsForEvent(event.id);
                                     await firebaseService.deleteEvent(event.id);
                                     if (context.mounted) {
                                       ScaffoldMessenger.of(
                                         context,
                                       ).showSnackBar(
                                         const SnackBar(
-                                          content: Text('Event deleted.'),
+                                          content: Text(
+                                            'Event and its join records deleted.',
+                                          ),
                                         ),
                                       );
                                     }
